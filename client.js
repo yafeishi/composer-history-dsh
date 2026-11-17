@@ -47,13 +47,24 @@ window.__ModuleLoader__.load({
       }
 
       const textOf = (node) => {
+        // Chat nodes wrap their record: content may sit on the node itself
+        // or one level down under data (ConversationViewNode.data).
+        const candidates = [node.content, node.data && node.data.content, node.data && node.data.node && node.data.node.content]
         let text = ''
-        for (const block of node.content) {
-          if (typeof block === 'string') text += block
-          else if (block && typeof block.text === 'string') text += block.text
+        for (const content of candidates) {
+          if (!Array.isArray(content)) continue
+          for (const block of content) {
+            if (typeof block === 'string') text += block
+            else if (block && typeof block.text === 'string') text += block.text
+          }
+          if (text.trim()) break
         }
         return text
       }
+
+      const isUserNode = (node) => node && node.kind === 'user'
+        && [node.content, node.data && node.data.content, node.data && node.data.node && node.data.node.content]
+          .some((c) => Array.isArray(c))
 
       try {
         const chat = conversation && conversation.views
@@ -64,7 +75,7 @@ window.__ModuleLoader__.load({
           for (const key of chat.order) {
             let node = null
             try { node = chat.nodes.get(key) } catch { /* store shape change */ }
-            if (node && node.kind === 'user' && Array.isArray(node.content)) push(textOf(node))
+            if (isUserNode(node)) push(textOf(node))
           }
           if (texts.length) return texts
           // fall through to the generic walk when order/keys yield nothing
@@ -79,7 +90,7 @@ window.__ModuleLoader__.load({
           return
         }
         if (typeof value !== 'object') return
-        if (value.kind === 'user' && Array.isArray(value.content)) {
+        if (isUserNode(value)) {
           push(textOf(value))
           return
         }
