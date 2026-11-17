@@ -29,47 +29,58 @@ window.__ModuleLoader__.load({
       tooltip: 'Recall sent messages with ArrowUp/ArrowDown (empty draft)',
     }
 
-    const MAX_DEPTH = 6
-    const MAX_NODES = 4000
-
     /**
      * Pull the distinct texts of user messages out of a conversation snapshot.
-     * The view-store shape is owner-internal, so this walks the few known
-     * containers defensively and gives up quietly when nothing matches; the
-     * plugin then simply has no history to recall until the next snapshot.
+     * Primary path: the chat view snapshot (`views.get('chat')`) holds an
+     * ordered key list plus a node store. A generic fallback walk covers
+     * snapshot evolution; both fail quietly to an empty history.
      */
     function extractHistory(conversation) {
       const texts = []
       const seen = new Set()
-      let visited = 0
-
-      const pushUser = (node) => {
-        let text = ''
-        for (const block of node.content) {
-          if (typeof block === 'string') text += block
-          else if (block && typeof block.text === 'string') text += block.text
-        }
-        text = text.trim()
+      const push = (text) => {
+        text = String(text).trim()
         if (text && !seen.has(text)) {
           seen.add(text)
           texts.push(text)
         }
       }
 
-      const visit = (value, depth) => {
-        if (value === null || value === undefined || depth > MAX_DEPTH) return
-        if (visited > MAX_NODES) return
-        if (Array.isArray(value)) {
-          for (const item of value) {
-            visited += 1
-            visit(item, depth + 1)
+      const textOf = (node) => {
+        let text = ''
+        for (const block of node.content) {
+          if (typeof block === 'string') text += block
+          else if (block && typeof block.text === 'string') text += block.text
+        }
+        return text
+      }
+
+      try {
+        const chat = conversation && conversation.views
+          && typeof conversation.views.get === 'function'
+          ? conversation.views.get('chat')
+          : null
+        if (chat && Array.isArray(chat.order) && chat.nodes) {
+          for (const key of chat.order) {
+            let node = null
+            try { node = chat.nodes.get(key) } catch { /* store shape change */ }
+            if (node && node.kind === 'user' && Array.isArray(node.content)) push(textOf(node))
           }
+          if (texts.length) return texts
+          // fall through to the generic walk when order/keys yield nothing
+        }
+      } catch { /* snapshot shape changed */ }
+
+      // Generic fallback: walk known containers depth-limited.
+      const visit = (value, depth) => {
+        if (value === null || value === undefined || depth > 6 || seen.size > 4000) return
+        if (Array.isArray(value)) {
+          for (const item of value) visit(item, depth + 1)
           return
         }
         if (typeof value !== 'object') return
-        visited += 1
         if (value.kind === 'user' && Array.isArray(value.content)) {
-          pushUser(value)
+          push(textOf(value))
           return
         }
         for (const key of Object.keys(value)) {
@@ -79,29 +90,9 @@ window.__ModuleLoader__.load({
           }
         }
       }
-
       try {
-        const views = conversation && conversation.views
-        if (views) {
-          const roots = []
-          if (typeof views.get === 'function') {
-            for (const name of ['chat', 'conversation', 'default']) {
-              try {
-                const view = views.get(name)
-                if (view) roots.push(view)
-              } catch { /* unknown view name */ }
-            }
-          }
-          if (typeof views.grouped === 'function') {
-            try {
-              const grouped = views.grouped()
-              if (grouped) roots.push(grouped)
-            } catch { /* no grouped form */ }
-          }
-          if (!roots.length) roots.push(views)
-          for (const root of roots) visit(root, 0)
-        }
-      } catch { /* snapshot shape changed; leave history empty */ }
+        visit(conversation && conversation.views, 0)
+      } catch { /* leave history empty */ }
       return texts
     }
 
