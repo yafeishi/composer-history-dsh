@@ -1,5 +1,7 @@
 # Composer history for DeepSeek Harness
 
+> **状态：实验性（0.x）**。核心逻辑通过模拟测试验证，尚未在真实界面完成端到端验证；接口调整期间版本可能快速迭代。1.0 将在真实环境验证稳定后发布。
+
 终端式的输入框历史：草稿为空时按 **↑** 逐条调出本会话已发送的消息，**↓** 向后翻，越过最新一条则清空草稿——和 shell 历史一样。
 
 English: terminal-style input history for the chat composer. With an empty draft, `↑` recalls the previous message you sent in the current conversation, `↓` walks forward, and walking past the newest entry clears the draft.
