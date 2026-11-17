@@ -220,7 +220,24 @@ window.__ModuleLoader__.load({
         return () => document.removeEventListener('keydown', onKeyDown, true)
       }, [])
 
-      return null
+      // Visible status chip (bottom-left): shows how many recalled messages
+      // the current conversation exposes. 0 = nothing to recall here.
+      const chipCount = extractHistory(conversationRef.current).length
+
+      return h('div', {
+        style: {
+          position: 'fixed', left: 14, bottom: 14, zIndex: 1100,
+          pointerEvents: 'none', userSelect: 'none',
+        },
+        title: 'Composer history',
+      },
+        h('span', {
+          style: {
+            fontSize: 11, padding: '2px 8px', borderRadius: 10,
+            background: chipCount > 0 ? 'rgba(47,111,237,0.16)' : 'rgba(128,128,128,0.14)',
+            color: chipCount > 0 ? 'var(--dsw-alias-brand-primary, #2F6FED)' : 'var(--dsw-alias-label-secondary, #888)',
+          },
+        }, '⌃ ' + chipCount))
     }
 
     return {
