@@ -1,0 +1,3 @@
+- insert:
+    - id: composer-history
+      name: '@yafeishi/dsh-composer-history'

@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "title": "Composer history",
+    "description": "Adds terminal-style input history to the chat composer: when the draft is empty, press ArrowUp to recall the previous message you sent in this conversation, ArrowDown to move forward, and ArrowDown past the newest entry to clear the draft. Works per conversation; IME composition is never intercepted."
+  },
+  "panel": "Composer history",
+  "tooltip": "Recall sent messages with ArrowUp/ArrowDown (empty draft)",
+  "title": "Composer input history",
+  "hint": "History: ArrowUp recalls the previous sent message; ArrowDown moves forward; past the newest clears the draft."
+}
