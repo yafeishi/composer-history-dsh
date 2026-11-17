@@ -1,6 +1,6 @@
 {
   "name": "@yafeishi/dsh-composer-history",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Terminal-style input history for the DeepSeek Harness composer: recall previously sent messages with ArrowUp/ArrowDown when the draft is empty.",
   "license": "MIT",
   "private": false,
