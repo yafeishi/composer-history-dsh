@@ -6,10 +6,20 @@ English: terminal-style input history for the chat composer. With an empty draft
 
 ## 特性 / Features
 
-- 只在**草稿为空**时接管 ↑，草稿有内容时方向键行为不变
+- 只在**草稿为空**（或正在翻阅历史）时接管 ↑，草稿有内容时方向键行为不变
 - 中文输入法组合期（IME composing）完全不打扰
-- 只在当前会话内取历史，数据来自官方 `useConversation` 接口，无 DOM 抓取
 - 通过官方 `inputActions.setDraft()` 写入草稿，与引用、附件、斜杠命令兼容
+- **默认只在当前会话内翻历史**；跨会话全局历史默认关闭（见下）
+
+## 开启跨会话全局历史（默认关闭）/ Enable global history
+
+默认 ↑ 只翻当前会话里发过的消息。想让任何新会话也能调出之前所有会话发过的消息：
+
+```sh
+mkdir -p ~/.dsh && touch ~/.dsh/composer-history-global
+```
+
+然后重启 Harness。关闭则删除该文件（`rm ~/.dsh/composer-history-global`）。开启期间发送的消息会记录在本机 `~/.dsh/storages/composer-history.json`（最多 500 条，不上传任何服务器）。
 
 ## 安装 / Install
 

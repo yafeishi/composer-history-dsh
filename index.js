@@ -6,6 +6,7 @@
  * written atomically. Read-only to the browser; the Host owns the file.
  */
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 
@@ -17,6 +18,20 @@ export const inject = ['webServer']
 function storageFile() {
   const home = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
   return path.join(home, 'storages', 'composer-history.json')
+}
+
+/** Global (cross-conversation) history is OFF by default. Touch this file to opt in. */
+function enabledFile() {
+  const home = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
+  return path.join(home, 'composer-history-global')
+}
+
+function globalEnabled() {
+  try {
+    return existsSync(enabledFile())
+  } catch {
+    return false
+  }
 }
 
 let cache = null
@@ -63,10 +78,18 @@ export function apply(ctx) {
     handler: async (req, res) => {
       try {
         if (req.method === 'GET') {
-          json(res, 200, { items: await loadItems() })
+          const enabled = globalEnabled()
+          json(res, 200, {
+            enabled,
+            items: enabled ? await loadItems() : [],
+          })
           return
         }
         if (req.method === 'POST') {
+          if (!globalEnabled()) {
+            json(res, 200, { ok: true, ignored: 'global history disabled' })
+            return
+          }
           const body = JSON.parse(await readBody(req) || '{}')
           const text = typeof body.text === 'string' ? body.text.trim() : ''
           if (!text) {
