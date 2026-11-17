@@ -20,6 +20,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement
 
     const NS = 'dsh-composer-history'
+    const STORE_ENDPOINT = '/api/composer-history'
 
     const zh = {
       tooltip: '草稿为空时用 ↑/↓ 调取已发送消息',
@@ -109,6 +110,8 @@ window.__ModuleLoader__.load({
       const inputRef = useRef(null)
       const conversationRef = useRef(null)
       const idxRef = useRef(null)
+      const storeRef = useRef([])          // machine-global sent prompts (Host store)
+      const lastRecordedRef = useRef(null) // draftRev already recorded
 
       actionsRef.current = props && props.inputActions
       try {
@@ -119,6 +122,47 @@ window.__ModuleLoader__.load({
           ? props.useConversation((state) => state)
           : null
       } catch { /* conversation unavailable before binding */ }
+
+      const recordSend = (text) => {
+        const trimmed = text.trim()
+        if (!trimmed) return
+        fetch(STORE_ENDPOINT, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text: trimmed }),
+        }).then((response) => {
+          if (response.ok) return fetch(STORE_ENDPOINT, { cache: 'no-store' })
+          return undefined
+        }).then((response) => {
+          if (response && response.ok) return response.json()
+          return undefined
+        }).then((payload) => {
+          if (payload && Array.isArray(payload.items)) storeRef.current = payload.items
+        }).catch(() => { /* store unreachable; history just stays session-only */ })
+      }
+
+      // Record each outgoing message once: while the submit plane is
+      // `sending`, the editor still holds the frozen sent draft.
+      useEffect(() => {
+        const input = inputRef.current
+        if (!input || input.phase !== 'sending') return
+        if (typeof input.draft !== 'string' || !input.draft.trim()) return
+        if (lastRecordedRef.current === input.draftRev) return
+        lastRecordedRef.current = input.draftRev
+        recordSend(input.draft)
+      })
+
+      // Load the machine-global store when this conversation mounts.
+      useEffect(() => {
+        let cancelled = false
+        fetch(STORE_ENDPOINT, { cache: 'no-store' })
+          .then((response) => (response.ok ? response.json() : undefined))
+          .then((payload) => {
+            if (!cancelled && payload && Array.isArray(payload.items)) storeRef.current = payload.items
+          })
+          .catch(() => { /* store unreachable */ })
+        return () => { cancelled = true }
+      }, [])
 
       useEffect(() => {
         const onKeyDown = (event) => {
@@ -133,7 +177,21 @@ window.__ModuleLoader__.load({
 
           const input = inputRef.current
           const draft = input && typeof input.draft === 'string' ? input.draft : ''
-          const history = extractHistory(conversationRef.current)
+
+          // Merge: conversation messages first (they are this conversation's
+          // own context), then the machine-global store. Dedupe keeps the
+          // last occurrence so the walk meets the newest copy.
+          const merged = []
+          const seen = new Set()
+          for (const text of [...storeRef.current, ...extractHistory(conversationRef.current)]) {
+            if (seen.has(text)) {
+              const at = merged.indexOf(text)
+              if (at >= 0) merged.splice(at, 1)
+            }
+            seen.add(text)
+            merged.push(text)
+          }
+          const history = merged.slice(-500)
           if (!history.length) return
 
           if (event.key === 'ArrowUp') {
